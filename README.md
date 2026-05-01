@@ -1,19 +1,19 @@
 # Motif
 
-**Motif** is a musical, brand-driven name for an agent platform built in **F#**.
+**Motif** is an **F# DSL** on top of **Microsoft Agent Framework**.
 
-It is intended to sit on top of **Microsoft Agent Framework** and the framework's runtime dependencies.
+It is not a platform by itself; it is the DSL layer only for now.
 
 ## Stack
 
 - **Language:** F#
-- **Agent framework:** Microsoft Agent Framework
+- **Framework:** Microsoft Agent Framework
 - **Dependencies:** Microsoft Agent Framework runtime dependencies and supporting packages
 
 ## Goal
 
-A lightweight, composable foundation for building agent workflows and platform primitives.
+Provide a lightweight DSL for expressing agent workflows on top of Microsoft Agent Framework.
 
 ## Status
 
-Early-stage repository scaffold.
+Early-stage DSL scaffold.
