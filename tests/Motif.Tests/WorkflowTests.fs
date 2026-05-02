@@ -39,3 +39,18 @@ module WorkflowTests =
         [ spec "bull"; spec "bear"; spec "judge" ]
         |> Maf.roundRobinChat "research-debate" 6 client
         |> assertWorkflow "research-debate" 3
+
+    [<Fact>]
+    let ``Maf debate materializes participants plus judge chat workflow`` () =
+        Maf.debate "research-debate" 2 client [ spec "bull"; spec "bear" ] (spec "judge")
+        |> assertWorkflow "research-debate" 3
+
+    [<Fact>]
+    let ``Maf panel materializes fanout then judge workflow`` () =
+        Maf.panel "analyst-panel" client [ spec "market"; spec "news"; spec "fundamentals" ] (spec "trader")
+        |> assertWorkflow "analyst-panel" 4
+
+    [<Fact>]
+    let ``Maf handoff materializes coordinator to specialists workflow`` () =
+        Maf.handoff "trading-desk" client (spec "coordinator") [ spec "market"; spec "risk"; spec "trader" ]
+        |> assertWorkflow "trading-desk" 4

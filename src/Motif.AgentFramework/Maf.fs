@@ -76,3 +76,57 @@ module Maf =
                 .AddParticipants(materialized)
                 .WithName(name)
                 .Build())
+
+    /// Materialize a debate as a native MAF round-robin group chat.
+    /// Each round gives every participant one turn, followed by the judge.
+    let debate (name: string) (maxRounds: int) (client: IChatClient) (participants: AgentSpec list) (judge: AgentSpec) : Result<Workflow, AdapterError list> =
+        let turnsPerRound = participants.Length + 1
+        let maxIterations = max 1 maxRounds * turnsPerRound
+        participants @ [ judge ]
+        |> roundRobinChat name maxIterations client
+
+    let private toBinding (agent: AIAgent) : ExecutorBinding =
+        ExecutorBinding.op_Implicit(agent)
+
+    /// Materialize a panel workflow: fan out one input to experts, then fan in their reports to a judge.
+    let panel (name: string) (client: IChatClient) (experts: AgentSpec list) (judge: AgentSpec) : Result<Workflow, AdapterError list> =
+        match agents client experts, agent client judge with
+        | Ok materializedExperts, Ok materializedJudge ->
+            let start = ChatForwardingExecutor($"{name}-input", ChatForwardingExecutorOptions())
+            let startBinding: ExecutorBinding = ExecutorBinding.op_Implicit(start)
+            let expertBindings = materializedExperts |> List.map toBinding
+            let judgeBinding = toBinding materializedJudge
+
+            let workflow =
+                WorkflowBuilder(startBinding)
+                    .AddFanOutEdge(startBinding, expertBindings, "expert fanout")
+                    .AddFanInBarrierEdge(expertBindings, judgeBinding, "judge after expert reports")
+                    .WithOutputFrom(judgeBinding)
+                    .WithName(name)
+                    .Build()
+
+            Ok workflow
+        | Error errors, Ok _ -> Error errors
+        | Ok _, Error errors -> Error errors
+        | Error expertErrors, Error judgeErrors -> Error (expertErrors @ judgeErrors)
+
+    let private setWorkflowName (name: string) (workflow: Workflow) =
+        typeof<Workflow>.GetProperty("Name").SetValue(workflow, name)
+        workflow
+
+    /// Materialize a native MAF handoff workflow.
+    /// The coordinator receives the input and can hand off to one of the specialist agents using MAF handoff tools.
+    let handoff (name: string) (client: IChatClient) (coordinator: AgentSpec) (specialists: AgentSpec list) : Result<Workflow, AdapterError list> =
+        match agent client coordinator, agents client specialists with
+        | Ok materializedCoordinator, Ok materializedSpecialists ->
+            let workflow =
+                AgentWorkflowBuilder
+                    .CreateHandoffBuilderWith(materializedCoordinator)
+                    .WithHandoffs(materializedCoordinator, materializedSpecialists)
+                    .Build()
+                |> setWorkflowName name
+
+            Ok workflow
+        | Error errors, Ok _ -> Error errors
+        | Ok _, Error errors -> Error errors
+        | Error coordinatorErrors, Error specialistErrors -> Error (coordinatorErrors @ specialistErrors)

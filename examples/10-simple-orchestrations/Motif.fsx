@@ -36,6 +36,21 @@ let news =
         instructions "Analyze news and macro context."
     }
 
+let fundamentals =
+    agent "fundamentals-analyst" {
+        instructions "Analyze fundamentals and company quality."
+    }
+
+let coordinator =
+    agent "coordinator" {
+        instructions "Route the request to the right specialist."
+    }
+
+let risk =
+    agent "risk-manager" {
+        instructions "Analyze risk and position sizing."
+    }
+
 let bull =
     agent "bull-researcher" {
         instructions "Argue the bullish case."
@@ -59,8 +74,15 @@ let analystFanout =
     |> Result.defaultWith (fun errors -> failwithf "%A" errors)
 
 let researchDebate =
-    [ bull; bear; judge ]
-    |> Maf.roundRobinChat "research-debate" 6 client
+    Maf.debate "research-debate" 2 client [ bull; bear ] judge
+    |> Result.defaultWith (fun errors -> failwithf "%A" errors)
+
+let analystPanel =
+    Maf.panel "analyst-panel" client [ market; news; fundamentals ] judge
+    |> Result.defaultWith (fun errors -> failwithf "%A" errors)
+
+let tradingDesk =
+    Maf.handoff "trading-desk" client coordinator [ market; news; risk ]
     |> Result.defaultWith (fun errors -> failwithf "%A" errors)
 
 let researchToTrade =
@@ -69,5 +91,7 @@ let researchToTrade =
     |> Result.defaultWith (fun errors -> failwithf "%A" errors)
 
 printfn "Concurrent workflow: %s / executors: %i" analystFanout.Name (analystFanout.ReflectExecutors().Count)
-printfn "Round-robin chat: %s / executors: %i" researchDebate.Name (researchDebate.ReflectExecutors().Count)
+printfn "Debate workflow: %s / executors: %i" researchDebate.Name (researchDebate.ReflectExecutors().Count)
+printfn "Panel workflow: %s / executors: %i" analystPanel.Name (analystPanel.ReflectExecutors().Count)
+printfn "Handoff workflow: %s / executors: %i" tradingDesk.Name (tradingDesk.ReflectExecutors().Count)
 printfn "Sequential workflow: %s / executors: %i" researchToTrade.Name (researchToTrade.ReflectExecutors().Count)
