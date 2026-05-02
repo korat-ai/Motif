@@ -3,6 +3,11 @@ namespace Motif
 open System
 
 /// One agent-run operation inside a Motif program. This is a description, not execution.
+type ReturnStep =
+    { Value: obj
+      OutputType: Type }
+
+/// One agent-run operation inside a Motif program. This is a description, not execution.
 type AgentRunStep =
     { Agent: AgentSpec
       Input: obj
@@ -29,12 +34,23 @@ and DebateStep =
       ParticipantOutputType: Type
       OutputType: Type }
 
+/// Conditional route operation over a quoted predicate.
+and RouteStep =
+    { Source: ProgramNode
+      Predicate: QuotedPredicate
+      IfTrue: ProgramNode
+      IfFalse: ProgramNode
+      SourceType: Type
+      OutputType: Type }
+
 /// Initial/free-like representation of a Motif program.
 and ProgramNode =
+    | Return of ReturnStep
     | RunAgent of AgentRunStep
     | Fanout of FanoutStep
     | Sequence of SequenceStep
     | Debate of DebateStep
+    | Route of RouteStep
 
 /// A typed facade over the untyped initial representation.
 type MotifProgram<'output> =
@@ -42,6 +58,10 @@ type MotifProgram<'output> =
       OutputType: Type }
 
 module Program =
+    let value<'output> (value: 'output) : MotifProgram<'output> =
+        { Root = Return { Value = box value; OutputType = typeof<'output> }
+          OutputType = typeof<'output> }
+
     let run<'input, 'output> (agent: AgentSpec) (input: 'input) : MotifProgram<'output> =
         { Root =
             RunAgent
@@ -78,5 +98,21 @@ module Program =
                   Judge = judge.Root
                   Rounds = rounds
                   ParticipantOutputType = typeof<'participantOutput>
+                  OutputType = typeof<'output> }
+          OutputType = typeof<'output> }
+
+    let route<'source, 'output>
+        (source: MotifProgram<'source>)
+        (predicate: PredicateSpec<'source>)
+        (ifTrue: MotifProgram<'output>)
+        (ifFalse: MotifProgram<'output>)
+        : MotifProgram<'output> =
+        { Root =
+            Route
+                { Source = source.Root
+                  Predicate = predicate.Quoted
+                  IfTrue = ifTrue.Root
+                  IfFalse = ifFalse.Root
+                  SourceType = typeof<'source>
                   OutputType = typeof<'output> }
           OutputType = typeof<'output> }

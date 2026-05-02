@@ -2,6 +2,7 @@ namespace Motif.Tests
 
 open Xunit
 open Motif
+open Microsoft.FSharp.Quotations
 
 module ProgramTests =
     type Ticker = Ticker of string
@@ -143,6 +144,75 @@ module ProgramTests =
         match TestInterpreter.run program interpreter with
         | Error (MissingAgentFixture "bear") -> ()
         | other -> failwithf "Expected missing participant fixture error, got %A" other
+
+    [<Fact>]
+    let ``route creates a route operation with quoted predicate and typed branches`` () =
+        let source =
+            Program.fanout [
+                Program.run<Ticker, MarketReport> (agent "market") (Ticker "NVDA")
+                Program.run<Ticker, MarketReport> (agent "news") (Ticker "NVDA")
+            ]
+        let predicate = Predicate.quote <@ fun (reports: MarketReport list) -> reports.Length > 1 @>
+        let trade = Program.run<MarketReport list, Decision> (agent "trader") [ MarketReport "placeholder" ]
+        let fallback = Program.value Hold
+
+        let program = Program.route source predicate trade fallback
+
+        Assert.Equal(typeof<Decision>, program.OutputType)
+        match program.Root with
+        | Route step ->
+            Assert.Equal(typeof<MarketReport list>, step.SourceType)
+            Assert.Equal(typeof<Decision>, step.OutputType)
+            match step.Predicate.Expression with
+            | :? Expr<MarketReport list -> bool> -> ()
+            | other -> failwithf "Expected typed quotation, got %A" other
+        | other -> failwithf "Expected Route node, got %A" other
+
+    [<Fact>]
+    let ``test interpreter evaluates quoted route predicate and chooses true branch`` () =
+        let source =
+            Program.fanout [
+                Program.run<Ticker, MarketReport> (agent "market") (Ticker "NVDA")
+                Program.run<Ticker, MarketReport> (agent "news") (Ticker "NVDA")
+            ]
+        let predicate = Predicate.quote <@ fun (reports: MarketReport list) -> reports.Length > 1 @>
+        let program =
+            Program.route
+                source
+                predicate
+                (Program.run<MarketReport list, Decision> (agent "trader") [ MarketReport "placeholder" ])
+                (Program.value Hold)
+        let interpreter =
+            TestInterpreter.empty
+            |> TestInterpreter.withAgentResult<MarketReport> "market" (MarketReport "technical ok")
+            |> TestInterpreter.withAgentResult<MarketReport> "news" (MarketReport "news ok")
+            |> TestInterpreter.withAgentResult<Decision> "trader" Buy
+
+        match TestInterpreter.run program interpreter with
+        | Ok decision -> Assert.Equal(Buy, decision)
+        | Error error -> failwithf "Expected interpreter success, got %A" error
+
+    [<Fact>]
+    let ``test interpreter evaluates quoted route predicate and chooses false branch`` () =
+        let source =
+            Program.fanout [
+                Program.run<Ticker, MarketReport> (agent "market") (Ticker "NVDA")
+            ]
+        let predicate = Predicate.quote <@ fun (reports: MarketReport list) -> reports.Length > 1 @>
+        let program =
+            Program.route
+                source
+                predicate
+                (Program.run<MarketReport list, Decision> (agent "trader") [ MarketReport "placeholder" ])
+                (Program.value Hold)
+        let interpreter =
+            TestInterpreter.empty
+            |> TestInterpreter.withAgentResult<MarketReport> "market" (MarketReport "technical ok")
+            |> TestInterpreter.withAgentResult<Decision> "trader" Buy
+
+        match TestInterpreter.run program interpreter with
+        | Ok decision -> Assert.Equal(Hold, decision)
+        | Error error -> failwithf "Expected interpreter success, got %A" error
 
     [<Fact>]
     let ``test interpreter reports missing fixture`` () =

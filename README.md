@@ -18,10 +18,13 @@ Early-stage .NET 10 spike with:
   - `OutputSpec`
   - validation
   - `MotifProgram<'T>` initial/free-like program description
+    - `Return`
     - `RunAgent`
     - `Fanout`
     - `Sequence`
     - `Debate`
+    - `Route`
+  - quoted predicates for inspectable route conditions
   - deterministic `TestInterpreter`
 - `Motif.AgentFramework`
   - thin adapter from `AgentSpec` to native MAF `AIAgent`
@@ -78,7 +81,20 @@ Examples:
 ```text
 examples/05-program-test-interpreter/Motif.fsx
 examples/06-debate-test-interpreter/Motif.fsx
+examples/07-route-quotation/Motif.fsx
 ```
+
+Routes use quoted predicates so conditions remain inspectable instead of opaque runtime continuations:
+
+```fsharp
+let hasEnoughReports =
+    Predicate.quote <@ fun (reports: MarketReport list) -> reports.Length > 1 @>
+
+let decision =
+    Program.route analystReports hasEnoughReports trade fallback
+```
+
+The first `TestInterpreter` subset supports simple quoted property access and comparison expressions such as `reports.Length > 1`.
 
 ## Build and test
 
@@ -91,7 +107,7 @@ Use the local .NET 10 SDK path in this environment:
 Expected current result:
 
 ```text
-Passed: 16, Failed: 0
+Passed: 19, Failed: 0
 ```
 
 ## Design docs

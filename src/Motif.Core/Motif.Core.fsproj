@@ -8,6 +8,7 @@
     <Compile Include="Agent.fs" />
     <Compile Include="Tool.fs" />
     <Compile Include="Output.fs" />
+    <Compile Include="Predicate.fs" />
     <Compile Include="Program.fs" />
     <Compile Include="TestInterpreter.fs" />
     <Compile Include="Validation.fs" />
