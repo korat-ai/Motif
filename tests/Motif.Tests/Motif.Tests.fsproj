@@ -20,5 +20,6 @@
     <Compile Include="DslTests.fs" />
     <Compile Include="ProgramTests.fs" />
     <Compile Include="AdapterTests.fs" />
+    <Compile Include="WorkflowTests.fs" />
   </ItemGroup>
 </Project>

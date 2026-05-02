@@ -21,6 +21,7 @@ Early-stage .NET 10 spike focused on **fast F# authoring for MAF**:
 - `Motif.AgentFramework`
   - thin adapter from `AgentSpec` to native MAF `AIAgent`
   - F# facade: `spec |> Maf.agent client`
+  - simple native MAF workflow helpers: `Maf.sequence`, `Maf.concurrent`, `Maf.roundRobinChat`
 - `Motif.Tests`
   - DSL tests
   - validation tests
@@ -56,6 +57,26 @@ let mafAgent =
 ```
 
 `Maf.agent` is just F#-friendly conversion sugar over `Adapter.toAgent`; native MAF still owns execution.
+
+## Simple multi-agent orchestration
+
+Motif can also materialize simple native MAF workflows from `AgentSpec` lists:
+
+```fsharp
+let analystFanout =
+    [ marketAnalyst; newsAnalyst; fundamentalsAnalyst ]
+    |> Maf.concurrent "analyst-fanout" client
+
+let researchToTrade =
+    [ marketAnalyst; trader ]
+    |> Maf.sequence "research-to-trade" client
+
+let researchDebate =
+    [ bullResearcher; bearResearcher; researchManager ]
+    |> Maf.roundRobinChat "research-debate" 6 client
+```
+
+These helpers return native `Microsoft.Agents.AI.Workflows.Workflow` values. Motif is not inventing its own orchestrator.
 
 ## Experimental Program slice
 
@@ -108,6 +129,7 @@ examples/06-debate-test-interpreter/Motif.fsx
 examples/07-route-quotation/Motif.fsx
 examples/08-simple-maf-dsl/Motif.fsx
 examples/09-maf-agent-facade/Motif.fsx
+examples/10-simple-orchestrations/Motif.fsx
 ```
 
 Routes use quoted predicates so conditions remain inspectable instead of opaque runtime continuations:
@@ -133,7 +155,7 @@ Use the local .NET 10 SDK path in this environment:
 Expected current result:
 
 ```text
-Passed: 24, Failed: 0
+Passed: 27, Failed: 0
 ```
 
 ## Design docs
