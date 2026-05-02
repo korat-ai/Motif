@@ -76,9 +76,9 @@ let analystFanout =
 let researchDebate =
     { DebateSpec.Name = "research-debate"
       Rounds = 2
-      Attacker = bull
-      Defender = bear
-      Judge = judge }
+      Attacker = bull |> AgentStep.withPrompt "For this debate turn: argue the bullish thesis and attack weak assumptions."
+      Defender = bear |> AgentStep.withPrompt "For this debate turn: defend the bearish thesis and rebut the attacker."
+      Judge = judge |> AgentStep.withPrompt "Judge only after all debate rounds are complete. Summarize the strongest evidence and decide." }
     |> Maf.debate client
     |> Result.defaultWith (fun errors -> failwithf "%A" errors)
 

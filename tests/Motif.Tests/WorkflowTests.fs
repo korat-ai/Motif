@@ -41,13 +41,31 @@ module WorkflowTests =
         |> assertWorkflow "research-debate" 3
 
     [<Fact>]
+    let ``AgentStep injects step prompt into agent instructions`` () =
+        let step =
+            spec "market"
+            |> AgentStep.withPrompt "For this step, only analyze price action."
+            |> AgentStep.toAgentSpec
+
+        Assert.Equal(
+            Some "You are market.\n\nStep prompt:\nFor this step, only analyze price action.",
+            step.Instructions)
+
+    [<Fact>]
+    let ``Maf sequenceSteps materializes workflow with per-step prompts`` () =
+        [ spec "market" |> AgentStep.withPrompt "For this step, only analyze price action."
+          spec "trader" |> AgentStep.withPrompt "For this step, produce Buy/Sell/Hold." ]
+        |> Maf.sequenceSteps "prompted-sequence" client
+        |> assertWorkflow "prompted-sequence" 2
+
+    [<Fact>]
     let ``Maf debate accepts settings record and materializes attacker defender rounds then judge workflow`` () =
         let debate =
             { DebateSpec.Name = "research-debate"
               Rounds = 2
-              Attacker = spec "attacker"
-              Defender = spec "defender"
-              Judge = spec "judge" }
+              Attacker = spec "attacker" |> AgentStep.withPrompt "Attack the thesis for this turn."
+              Defender = spec "defender" |> AgentStep.withPrompt "Defend the thesis for this turn."
+              Judge = spec "judge" |> AgentStep.withPrompt "Judge only after all rounds are complete." }
 
         Maf.debate client debate
         |> assertWorkflow "research-debate" 5
