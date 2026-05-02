@@ -10,30 +10,42 @@ Motif is not a standalone platform, runtime, scheduler, memory system, cloud abs
 
 ## Current status
 
-Early-stage .NET 10 spike with:
+Early-stage .NET 10 spike focused on **fast F# authoring for MAF**:
 
 - `Motif.Core`
+  - lightweight `agent "name" { ... }` computation expression
   - `AgentSpec`
   - `ToolRef`
   - `OutputSpec`
   - validation
-  - `MotifProgram<'T>` initial/free-like program description
-    - `Return`
-    - `RunAgent`
-    - `Fanout`
-    - `Sequence`
-    - `Debate`
-    - `Route`
-  - quoted predicates for inspectable route conditions
-  - deterministic `TestInterpreter`
 - `Motif.AgentFramework`
   - thin adapter from `AgentSpec` to native MAF `AIAgent`
 - `Motif.Tests`
+  - DSL tests
   - validation tests
   - adapter tests with fake `IChatClient`
-  - program/test-interpreter tests
 
-## Program slice
+The experimental `MotifProgram<'T>` / `TestInterpreter` files still exist from earlier spikes, but the product direction is now simpler: make F# authoring of MAF agents/programs fast and pleasant first.
+
+## Simple F# authoring DSL
+
+```fsharp
+let quoteTool =
+    Tool.ofSyncFunc "quote" "Return a mock quote" (fun (ticker: string) -> $"quote:{ticker}")
+    |> Result.defaultWith failwith
+
+let trader =
+    agent "trader" {
+        instructions "You are a concise trading assistant. Return Buy, Sell, or Hold."
+        tool quoteTool
+        output (Output.dotNetType<Decision> ())
+        metadata "style" "fast-maf-authoring"
+    }
+```
+
+The point is not to create a second runtime. Motif should make MAF programs quicker to write, while `Motif.AgentFramework` materializes specs into native MAF objects.
+
+## Experimental Program slice
 
 Agents are static capability blocks:
 
@@ -82,6 +94,7 @@ Examples:
 examples/05-program-test-interpreter/Motif.fsx
 examples/06-debate-test-interpreter/Motif.fsx
 examples/07-route-quotation/Motif.fsx
+examples/08-simple-maf-dsl/Motif.fsx
 ```
 
 Routes use quoted predicates so conditions remain inspectable instead of opaque runtime continuations:
@@ -107,7 +120,7 @@ Use the local .NET 10 SDK path in this environment:
 Expected current result:
 
 ```text
-Passed: 19, Failed: 0
+Passed: 21, Failed: 0
 ```
 
 ## Design docs
