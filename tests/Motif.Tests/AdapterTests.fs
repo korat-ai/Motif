@@ -29,6 +29,23 @@ type FakeChatClient() =
 
 module AdapterTests =
     [<Fact>]
+    let ``Maf agent facade materializes a native ChatClientAgent`` () =
+        let spec =
+            agent "trader" {
+                instructions "Make a concise trading decision."
+                metadata "description" "Trading assistant"
+            }
+
+        match spec |> Maf.agent (new FakeChatClient() :> IChatClient) with
+        | Ok agent ->
+            let chatAgent = Assert.IsType<ChatClientAgent>(agent)
+            Assert.Equal("trader", chatAgent.Name)
+            Assert.Equal("Trading assistant", chatAgent.Description)
+            Assert.Equal("Make a concise trading decision.", chatAgent.Instructions)
+        | Error errors ->
+            failwithf "Expected Maf.agent to materialize a ChatClientAgent, got %A" errors
+
+    [<Fact>]
     let ``function tool becomes Microsoft Extensions AI tool`` () =
         let handler (query: string) = Task.FromResult(query.ToUpperInvariant())
 

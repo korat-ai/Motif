@@ -20,6 +20,7 @@ Early-stage .NET 10 spike focused on **fast F# authoring for MAF**:
   - validation
 - `Motif.AgentFramework`
   - thin adapter from `AgentSpec` to native MAF `AIAgent`
+  - F# facade: `spec |> Maf.agent client`
 - `Motif.Tests`
   - DSL tests
   - validation tests
@@ -44,6 +45,13 @@ let trader =
 ```
 
 The point is not to create a second runtime. Motif should make MAF programs quicker to write, while `Motif.AgentFramework` materializes specs into native MAF objects.
+
+```fsharp
+let mafAgent =
+    trader |> Maf.agent client
+```
+
+`Maf.agent` is just F#-friendly conversion sugar over `Adapter.toAgent`; native MAF still owns execution.
 
 ## Experimental Program slice
 
@@ -95,6 +103,7 @@ examples/05-program-test-interpreter/Motif.fsx
 examples/06-debate-test-interpreter/Motif.fsx
 examples/07-route-quotation/Motif.fsx
 examples/08-simple-maf-dsl/Motif.fsx
+examples/09-maf-agent-facade/Motif.fsx
 ```
 
 Routes use quoted predicates so conditions remain inspectable instead of opaque runtime continuations:
@@ -120,7 +129,7 @@ Use the local .NET 10 SDK path in this environment:
 Expected current result:
 
 ```text
-Passed: 21, Failed: 0
+Passed: 22, Failed: 0
 ```
 
 ## Design docs
