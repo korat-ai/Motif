@@ -77,13 +77,18 @@ module Maf =
                 .WithName(name)
                 .Build())
 
-    /// Materialize a debate as a native MAF round-robin group chat.
-    /// Each round gives every participant one turn, followed by the judge.
-    let debate (name: string) (maxRounds: int) (client: IChatClient) (participants: AgentSpec list) (judge: AgentSpec) : Result<Workflow, AdapterError list> =
-        let turnsPerRound = participants.Length + 1
-        let maxIterations = max 1 maxRounds * turnsPerRound
-        participants @ [ judge ]
-        |> roundRobinChat name maxIterations client
+    /// Materialize a debate as a native MAF sequential workflow.
+    /// The attacker and defender alternate for maxRounds, then the judge speaks once at the end.
+    let debate (name: string) (maxRounds: int) (client: IChatClient) (attacker: AgentSpec) (defender: AgentSpec) (judge: AgentSpec) : Result<Workflow, AdapterError list> =
+        let rounds = max 1 maxRounds
+        let debateSteps =
+            [ for _ in 1 .. rounds do
+                  yield attacker
+                  yield defender
+              yield judge ]
+
+        debateSteps
+        |> sequence name client
 
     let private toBinding (agent: AIAgent) : ExecutorBinding =
         ExecutorBinding.op_Implicit(agent)

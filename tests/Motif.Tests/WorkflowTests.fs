@@ -41,9 +41,9 @@ module WorkflowTests =
         |> assertWorkflow "research-debate" 3
 
     [<Fact>]
-    let ``Maf debate materializes participants plus judge chat workflow`` () =
-        Maf.debate "research-debate" 2 client [ spec "bull"; spec "bear" ] (spec "judge")
-        |> assertWorkflow "research-debate" 3
+    let ``Maf debate materializes attacker defender rounds then judge workflow`` () =
+        Maf.debate "research-debate" 2 client (spec "attacker") (spec "defender") (spec "judge")
+        |> assertWorkflow "research-debate" 5
 
     [<Fact>]
     let ``Maf panel materializes fanout then judge workflow`` () =

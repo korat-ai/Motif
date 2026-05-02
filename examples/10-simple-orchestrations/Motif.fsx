@@ -74,7 +74,7 @@ let analystFanout =
     |> Result.defaultWith (fun errors -> failwithf "%A" errors)
 
 let researchDebate =
-    Maf.debate "research-debate" 2 client [ bull; bear ] judge
+    Maf.debate "research-debate" 2 client bull bear judge
     |> Result.defaultWith (fun errors -> failwithf "%A" errors)
 
 let analystPanel =
