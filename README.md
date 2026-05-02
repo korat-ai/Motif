@@ -1,50 +1,82 @@
-# Motif Spike
+# Motif
 
-Disposable spike for the first Motif primitives.
+**Motif** is an **F# DSL / authoring layer** on top of **Microsoft Agent Framework**.
 
-## Boundary
+Canonical boundary:
 
-Motif is a records-first F# pre-runtime authoring layer over Microsoft Agent Framework.
+> Motif describes. Interpreters materialize. Backends execute.
 
-Motif v0 does:
+Motif is not a standalone platform, runtime, scheduler, memory system, cloud abstraction, or replacement for Microsoft Agent Framework.
 
-- define `AgentSpec`
-- define `ToolRef`
-- define `OutputSpec`
-- validate obvious pre-runtime mistakes
-- prepare for an explicit `Motif.Maf.toAgent` adapter
+## Current status
 
-Motif v0 does not:
+Early-stage .NET 10 spike with:
 
-- run agents
-- stream responses
-- manage `AgentThread`
-- wrap `AgentResponse`
-- define workflows
-- create a scheduler
-- create memory/runtime/cloud abstractions
-- replace Microsoft Agent Framework
+- `Motif.Core`
+  - `AgentSpec`
+  - `ToolRef`
+  - `OutputSpec`
+  - validation
+  - `MotifProgram<'T>` initial/free-like program description
+  - deterministic `TestInterpreter`
+- `Motif.AgentFramework`
+  - thin adapter from `AgentSpec` to native MAF `AIAgent`
+- `Motif.Tests`
+  - validation tests
+  - adapter tests with fake `IChatClient`
+  - program/test-interpreter tests
 
-## First primitives
+## Program slice
+
+Agents are static capability blocks:
 
 ```fsharp
-let searchTool =
-    Tool.ofSyncFunc "search" "Search documents" (fun query -> $"Results for {query}")
-
-let spec =
-    Agent.unsafeCreate "research-agent"
-    |> Agent.withInstructions "Answer using the search tool when needed."
-    |> Agent.withTool (searchTool |> Result.defaultWith failwith)
-
-let validation = Validation.validate spec
+let marketAnalyst =
+    Agent.unsafeCreate "market-analyst"
+    |> Agent.withInstructions "Produce a concise market report."
 ```
 
-## Proof gates before real v1
+Programs describe operations over agents without executing models or tools:
 
-Continue only if the spike proves:
+```fsharp
+let program : MotifProgram<Decision> =
+    Program.sequence
+        (Program.fanout [
+            Program.run<Ticker, MarketReport> marketAnalyst (Ticker "NVDA")
+            Program.run<Ticker, MarketReport> newsAnalyst (Ticker "NVDA")
+        ])
+        (Program.run<MarketReport list, Decision> trader [ MarketReport "placeholder" ])
+```
 
-- Motif examples are at least 30% shorter than raw MAF in 2 of 3 cases.
-- Validation catches at least 3 useful errors.
-- The future `Motif.Maf.toAgent` adapter stays tiny and obvious.
-- Raw MAF escape hatches work without rewriting `AgentSpec`.
-- No workflow/run/stream/runtime abstraction creeps into core.
+The test interpreter is deterministic and fixture-based:
+
+```fsharp
+let interpreter =
+    TestInterpreter.empty
+    |> TestInterpreter.withAgentResult<MarketReport> "market-analyst" (MarketReport "technical trend is positive")
+    |> TestInterpreter.withAgentResult<Decision> "trader" Buy
+
+let result = TestInterpreter.run program interpreter
+```
+
+## Build and test
+
+Use the local .NET 10 SDK path in this environment:
+
+```bash
+/opt/data/dotnet/dotnet test Motif.sln --nologo
+```
+
+Expected current result:
+
+```text
+Passed: 13, Failed: 0
+```
+
+## Design docs
+
+See:
+
+```text
+docs/MOTIF_SPEC.md
+```
