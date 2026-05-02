@@ -94,26 +94,8 @@ let researchToTrade =
     |> Maf.sequence "research-to-trade" client
     |> Result.defaultWith (fun errors -> failwithf "%A" errors)
 
-let composedPanel =
-    let marketBranch =
-        workflow "market-branch" {
-            agent market
-            agent news
-        }
-
-    let riskBranch =
-        workflow "risk-branch" {
-            agent fundamentals
-            agent risk
-        }
-
-    Workflow.panel "composed-analyst-panel" [ marketBranch; riskBranch ] judge
-    |> Maf.workflow client
-    |> Result.defaultWith (fun errors -> failwithf "%A" errors)
-
 printfn "Concurrent workflow: %s / executors: %i" analystFanout.Name (analystFanout.ReflectExecutors().Count)
 printfn "Debate workflow: %s / executors: %i" researchDebate.Name (researchDebate.ReflectExecutors().Count)
 printfn "Panel workflow: %s / executors: %i" analystPanel.Name (analystPanel.ReflectExecutors().Count)
 printfn "Handoff workflow: %s / executors: %i" tradingDesk.Name (tradingDesk.ReflectExecutors().Count)
 printfn "Sequential workflow: %s / executors: %i" researchToTrade.Name (researchToTrade.ReflectExecutors().Count)
-printfn "Composed panel workflow: %s / executors: %i" composedPanel.Name (composedPanel.ReflectExecutors().Count)

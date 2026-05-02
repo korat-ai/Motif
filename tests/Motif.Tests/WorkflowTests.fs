@@ -91,33 +91,3 @@ module WorkflowTests =
     let ``Maf handoff materializes coordinator to specialists workflow`` () =
         Maf.handoff "trading-desk" client (spec "coordinator") [ spec "market"; spec "risk"; spec "trader" ]
         |> assertWorkflow "trading-desk" 4
-
-    [<Fact>]
-    let ``workflow computation expression materializes sequential agents`` () =
-        let flow =
-            workflow "research-to-trade-ce" {
-                agent (spec "market")
-                agent (spec "trader")
-            }
-
-        flow
-        |> Maf.workflow client
-        |> assertWorkflow "research-to-trade-ce" 2
-
-    [<Fact>]
-    let ``workflow specs compose sequence branches inside panel`` () =
-        let marketBranch =
-            workflow "market-branch" {
-                agent (spec "market")
-                agent (spec "news")
-            }
-
-        let riskBranch =
-            workflow "risk-branch" {
-                agent (spec "fundamentals")
-                agent (spec "risk")
-            }
-
-        Workflow.panel "analyst-panel-composed" [ marketBranch; riskBranch ] (spec "judge")
-        |> Maf.workflow client
-        |> assertWorkflow "analyst-panel-composed" 6

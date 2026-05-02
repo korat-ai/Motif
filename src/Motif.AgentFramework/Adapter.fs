@@ -11,7 +11,6 @@ type AdapterError =
     | ValidationFailed of ValidationError list
     | UnsupportedNativeTool of toolName: string * actualType: Type
     | UnsupportedFunctionTool of toolName: string * reason: string
-    | InvalidWorkflowSpec of reason: string
 
 module Adapter =
     let private toolNameValue (toolName: ToolName) =
