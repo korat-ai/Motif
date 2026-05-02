@@ -35,10 +35,14 @@ let quoteTool =
     Tool.ofSyncFunc "quote" "Return a mock quote" (fun (ticker: string) -> $"quote:{ticker}")
     |> Result.defaultWith failwith
 
+let newsTool =
+    Tool.ofFunc "news" "Return mock news" (fun (ticker: string) -> Task.FromResult($"news:{ticker}"))
+    |> Result.defaultWith failwith
+
 let trader =
     agent "trader" {
         instructions "You are a concise trading assistant. Return Buy, Sell, or Hold."
-        tool quoteTool
+        tools [ quoteTool; newsTool ]
         output (Output.dotNetType<Decision> ())
         metadata "style" "fast-maf-authoring"
     }
@@ -129,7 +133,7 @@ Use the local .NET 10 SDK path in this environment:
 Expected current result:
 
 ```text
-Passed: 22, Failed: 0
+Passed: 24, Failed: 0
 ```
 
 ## Design docs

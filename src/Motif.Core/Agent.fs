@@ -21,6 +21,9 @@ module Agent =
     let withTool (tool: ToolRef) (spec: AgentSpec) : AgentSpec =
         { spec with Tools = spec.Tools @ [ tool ] }
 
+    let withTools (tools: ToolRef list) (spec: AgentSpec) : AgentSpec =
+        { spec with Tools = spec.Tools @ tools }
+
     let withOutput (output: OutputSpec) (spec: AgentSpec) : AgentSpec =
         { spec with Output = Some output }
 

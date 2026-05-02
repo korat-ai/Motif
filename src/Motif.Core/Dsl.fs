@@ -15,6 +15,10 @@ type AgentBuilder(name: string) =
     member _.Tool(spec: AgentSpec, tool: ToolRef) : AgentSpec =
         spec |> Agent.withTool tool
 
+    [<CustomOperation("tools")>]
+    member _.Tools(spec: AgentSpec, tools: ToolRef list) : AgentSpec =
+        spec |> Agent.withTools tools
+
     [<CustomOperation("output")>]
     member _.Output(spec: AgentSpec, output: OutputSpec) : AgentSpec =
         spec |> Agent.withOutput output

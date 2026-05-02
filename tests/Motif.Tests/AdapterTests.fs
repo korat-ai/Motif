@@ -46,6 +46,29 @@ module AdapterTests =
             failwithf "Expected Maf.agent to materialize a ChatClientAgent, got %A" errors
 
     [<Fact>]
+    let ``Maf agent facade accepts multiple function tools`` () =
+        let quote =
+            Tool.ofSyncFunc "quote" "Lookup quote" (fun (ticker: string) -> $"quote:{ticker}")
+            |> Result.defaultWith failwith
+
+        let news =
+            Tool.ofFunc "news" "Lookup news" (fun (ticker: string) -> Task.FromResult($"news:{ticker}"))
+            |> Result.defaultWith failwith
+
+        let spec =
+            agent "market" {
+                instructions "Use tools before answering."
+                tools [ quote; news ]
+            }
+
+        match spec |> Maf.agent (new FakeChatClient() :> IChatClient) with
+        | Ok agent ->
+            let chatAgent = Assert.IsType<ChatClientAgent>(agent)
+            Assert.Equal("market", chatAgent.Name)
+        | Error errors ->
+            failwithf "Expected tool materialization to succeed, got %A" errors
+
+    [<Fact>]
     let ``function tool becomes Microsoft Extensions AI tool`` () =
         let handler (query: string) = Task.FromResult(query.ToUpperInvariant())
 

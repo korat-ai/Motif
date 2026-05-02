@@ -31,9 +31,18 @@ type FakeChatClient() =
 
 type Decision = Buy | Sell | Hold
 
+let quoteTool =
+    Tool.ofSyncFunc "quote" "Return a mock quote for a ticker" (fun (ticker: string) -> $"quote:{ticker}:123.45")
+    |> Result.defaultWith failwith
+
+let newsTool =
+    Tool.ofFunc "news" "Return mock news for a ticker" (fun (ticker: string) -> Task.FromResult($"news:{ticker}:calm"))
+    |> Result.defaultWith failwith
+
 let trader =
     agent "trader" {
-        instructions "You are a concise trading assistant. Return Buy, Sell, or Hold."
+        instructions "You are a concise trading assistant. Use tools, then return Buy, Sell, or Hold."
+        tools [ quoteTool; newsTool ]
         output (Output.dotNetType<Decision> ())
         metadata "description" "Trading assistant"
     }
@@ -44,5 +53,6 @@ match trader |> Maf.agent (new FakeChatClient() :> IChatClient) with
     printfn "MAF agent: %s" chatAgent.Name
     printfn "Description: %s" chatAgent.Description
     printfn "Instructions: %s" chatAgent.Instructions
+    printfn "Motif tools: %i" trader.Tools.Length
 | Error errors ->
     failwithf "Could not materialize MAF agent: %A" errors
