@@ -12,24 +12,12 @@ open Motif
 type DebateSpec =
     { Name: string
       Rounds: int
-      Attacker: AgentStep
-      Defender: AgentStep
-      Judge: AgentStep }
+      Attacker: AgentSpec
+      Defender: AgentSpec
+      Judge: AgentSpec }
 
-and AgentStep =
-    { Agent: AgentSpec
-      Prompt: string option }
-
-module AgentStep =
-    let ofAgent (agent: AgentSpec) : AgentStep =
-        { Agent = agent
-          Prompt = None }
-
-    let withPrompt (prompt: string) (agent: AgentSpec) : AgentStep =
-        { Agent = agent
-          Prompt = Some prompt }
-
-    let private appendStepPrompt (prompt: string) (instructions: string option) =
+module Step =
+    let private appendPrompt (prompt: string) (instructions: string option) =
         let prefix =
             instructions
             |> Option.defaultValue String.Empty
@@ -40,12 +28,18 @@ module AgentStep =
         else
             $"{prefix}\n\nStep prompt:\n{prompt}"
 
-    let toAgentSpec (step: AgentStep) : AgentSpec =
-        match step.Prompt with
-        | None -> step.Agent
-        | Some prompt ->
-            { step.Agent with
-                Instructions = Some (appendStepPrompt prompt step.Agent.Instructions) }
+    /// Return a local copy of an agent with a prompt injected for one workflow step.
+    let prompt (prompt: string) (agent: AgentSpec) : AgentSpec =
+        { agent with
+            Instructions = Some (appendPrompt prompt agent.Instructions) }
+
+module Debate =
+    let create (name: string) (rounds: int) (attacker: AgentSpec) (defender: AgentSpec) (judge: AgentSpec) : DebateSpec =
+        { Name = name
+          Rounds = rounds
+          Attacker = attacker
+          Defender = defender
+          Judge = judge }
 
 /// Small F#-friendly facade for materializing Motif specs into native Microsoft Agent Framework objects.
 module Maf =
@@ -72,13 +66,6 @@ module Maf =
         |> agents client
         |> Result.map (fun materialized -> AgentWorkflowBuilder.BuildSequential(name, materialized))
 
-    /// Materialize a native MAF sequential workflow from Motif agent steps.
-    /// Step prompts are injected into that step's materialized agent instructions.
-    let sequenceSteps (name: string) (client: IChatClient) (steps: AgentStep list) : Result<Workflow, AdapterError list> =
-        steps
-        |> List.map AgentStep.toAgentSpec
-        |> sequence name client
-
     let private flattenChatMessages (branches: IList<List<ChatMessage>>) =
         let merged = List<ChatMessage>()
 
@@ -98,13 +85,6 @@ module Maf =
                 name,
                 materialized,
                 Func<IList<List<ChatMessage>>, List<ChatMessage>>(flattenChatMessages)))
-
-    /// Materialize a native MAF concurrent/fanout workflow from Motif agent steps.
-    /// Step prompts are injected into each branch agent's materialized instructions.
-    let concurrentSteps (name: string) (client: IChatClient) (steps: AgentStep list) : Result<Workflow, AdapterError list> =
-        steps
-        |> List.map AgentStep.toAgentSpec
-        |> concurrent name client
 
     /// Materialize a native MAF round-robin group chat workflow.
     /// Agents share one chat-style workflow and speak until maxIterations is reached.
@@ -140,7 +120,7 @@ module Maf =
               yield spec.Judge ]
 
         debateSteps
-        |> sequenceSteps spec.Name client
+        |> sequence spec.Name client
 
     let private toBinding (agent: AIAgent) : ExecutorBinding =
         ExecutorBinding.op_Implicit(agent)

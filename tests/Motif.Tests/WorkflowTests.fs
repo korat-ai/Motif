@@ -41,31 +41,43 @@ module WorkflowTests =
         |> assertWorkflow "research-debate" 3
 
     [<Fact>]
-    let ``AgentStep injects step prompt into agent instructions`` () =
-        let step =
+    let ``Step prompt combinator returns agent with injected step instructions`` () =
+        let prompted =
             spec "market"
-            |> AgentStep.withPrompt "For this step, only analyze price action."
-            |> AgentStep.toAgentSpec
+            |> Step.prompt "For this step, only analyze price action."
 
         Assert.Equal(
             Some "You are market.\n\nStep prompt:\nFor this step, only analyze price action.",
-            step.Instructions)
+            prompted.Instructions)
 
     [<Fact>]
-    let ``Maf sequenceSteps materializes workflow with per-step prompts`` () =
-        [ spec "market" |> AgentStep.withPrompt "For this step, only analyze price action."
-          spec "trader" |> AgentStep.withPrompt "For this step, produce Buy/Sell/Hold." ]
-        |> Maf.sequenceSteps "prompted-sequence" client
+    let ``Maf sequence materializes workflow with prompted agents`` () =
+        [ spec "market" |> Step.prompt "For this step, only analyze price action."
+          spec "trader" |> Step.prompt "For this step, produce Buy/Sell/Hold." ]
+        |> Maf.sequence "prompted-sequence" client
         |> assertWorkflow "prompted-sequence" 2
+
+    [<Fact>]
+    let ``Debate combinator creates debate spec from prompted agents`` () =
+        let debate =
+            Debate.create "research-debate" 2
+                (spec "attacker" |> Step.prompt "Attack the thesis.")
+                (spec "defender" |> Step.prompt "Defend the thesis.")
+                (spec "judge" |> Step.prompt "Judge at the end.")
+
+        Assert.Equal("research-debate", debate.Name)
+        Assert.Equal(2, debate.Rounds)
+        Assert.Equal(Some "You are attacker.\n\nStep prompt:\nAttack the thesis.", debate.Attacker.Instructions)
+        Assert.Equal(Some "You are defender.\n\nStep prompt:\nDefend the thesis.", debate.Defender.Instructions)
+        Assert.Equal(Some "You are judge.\n\nStep prompt:\nJudge at the end.", debate.Judge.Instructions)
 
     [<Fact>]
     let ``Maf debate accepts settings record and materializes attacker defender rounds then judge workflow`` () =
         let debate =
-            { DebateSpec.Name = "research-debate"
-              Rounds = 2
-              Attacker = spec "attacker" |> AgentStep.withPrompt "Attack the thesis for this turn."
-              Defender = spec "defender" |> AgentStep.withPrompt "Defend the thesis for this turn."
-              Judge = spec "judge" |> AgentStep.withPrompt "Judge only after all rounds are complete." }
+            Debate.create "research-debate" 2
+                (spec "attacker" |> Step.prompt "Attack the thesis for this turn.")
+                (spec "defender" |> Step.prompt "Defend the thesis for this turn.")
+                (spec "judge" |> Step.prompt "Judge only after all rounds are complete.")
 
         Maf.debate client debate
         |> assertWorkflow "research-debate" 5
