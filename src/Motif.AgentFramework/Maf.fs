@@ -9,6 +9,13 @@ open Microsoft.Agents.AI.Workflows
 open Microsoft.Extensions.AI
 open Motif
 
+type DebateSpec =
+    { Name: string
+      Rounds: int
+      Attacker: AgentSpec
+      Defender: AgentSpec
+      Judge: AgentSpec }
+
 /// Small F#-friendly facade for materializing Motif specs into native Microsoft Agent Framework objects.
 module Maf =
     /// Validate and materialize an AgentSpec into a native MAF AIAgent.
@@ -78,17 +85,17 @@ module Maf =
                 .Build())
 
     /// Materialize a debate as a native MAF sequential workflow.
-    /// The attacker and defender alternate for maxRounds, then the judge speaks once at the end.
-    let debate (name: string) (maxRounds: int) (client: IChatClient) (attacker: AgentSpec) (defender: AgentSpec) (judge: AgentSpec) : Result<Workflow, AdapterError list> =
-        let rounds = max 1 maxRounds
+    /// The attacker and defender alternate for Rounds, then the judge speaks once at the end.
+    let debate (client: IChatClient) (spec: DebateSpec) : Result<Workflow, AdapterError list> =
+        let rounds = max 1 spec.Rounds
         let debateSteps =
             [ for _ in 1 .. rounds do
-                  yield attacker
-                  yield defender
-              yield judge ]
+                  yield spec.Attacker
+                  yield spec.Defender
+              yield spec.Judge ]
 
         debateSteps
-        |> sequence name client
+        |> sequence spec.Name client
 
     let private toBinding (agent: AIAgent) : ExecutorBinding =
         ExecutorBinding.op_Implicit(agent)
