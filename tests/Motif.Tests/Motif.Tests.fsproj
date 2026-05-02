@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Motif.Core/Motif.Core.fsproj" />
     <ProjectReference Include="../../src/Motif.AgentFramework/Motif.AgentFramework.fsproj" />
+    <ProjectReference Include="..\..\src\Motif.AgentFramework.ComputationExpressions\Motif.AgentFramework.ComputationExpressions.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -21,5 +22,6 @@
     <Compile Include="ProgramTests.fs" />
     <Compile Include="AdapterTests.fs" />
     <Compile Include="WorkflowTests.fs" />
+    <Compile Include="NativeWorkflowExpressionTests.fs" />
   </ItemGroup>
 </Project>
