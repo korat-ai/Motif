@@ -56,6 +56,17 @@ module TestInterpreter =
                 | Error error -> Error error
                 | Ok _ -> evalNode step.Next
 
+            | Debate step ->
+                let rec evalParticipants remaining =
+                    match remaining with
+                    | [] -> evalNode step.Judge
+                    | participant :: tail ->
+                        match evalNode participant with
+                        | Ok _ -> evalParticipants tail
+                        | Error error -> Error error
+
+                evalParticipants step.Participants
+
         evalNode
 
     let run<'output> (program: MotifProgram<'output>) (interpreter: TestInterpreter) : Result<'output, TestInterpreterError> =

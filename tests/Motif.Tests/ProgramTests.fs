@@ -7,6 +7,7 @@ module ProgramTests =
     type Ticker = Ticker of string
     type MarketReport = MarketReport of string
     type FundamentalsReport = FundamentalsReport of string
+    type DebateArgument = DebateArgument of string
     type Decision = Buy | Sell | Hold
 
     let private agent name =
@@ -58,6 +59,26 @@ module ProgramTests =
         | other -> failwithf "Expected Sequence node, got %A" other
 
     [<Fact>]
+    let ``debate creates a debate operation with participants judge and rounds`` () =
+        let bull = Program.run<Ticker, DebateArgument> (agent "bull") (Ticker "NVDA")
+        let bear = Program.run<Ticker, DebateArgument> (agent "bear") (Ticker "NVDA")
+        let judge = Program.run<DebateArgument list, Decision> (agent "judge") [ DebateArgument "bullish"; DebateArgument "bearish" ]
+
+        let program = Program.debate 2 [ bull; bear ] judge
+
+        Assert.Equal(typeof<Decision>, program.OutputType)
+        match program.Root with
+        | Debate step ->
+            Assert.Equal(2, step.Rounds)
+            Assert.Equal(2, List.length step.Participants)
+            Assert.Equal(typeof<DebateArgument>, step.ParticipantOutputType)
+            Assert.Equal(typeof<Decision>, step.OutputType)
+            match step.Judge with
+            | RunAgent judgeRun -> Assert.Equal("judge", judgeRun.Agent.Name |> AgentName.value)
+            | other -> failwithf "Expected judge RunAgent node, got %A" other
+        | other -> failwithf "Expected Debate node, got %A" other
+
+    [<Fact>]
     let ``test interpreter returns configured agent result`` () =
         let analyst = agent "market-analyst"
         let program = Program.run<Ticker, MarketReport> analyst (Ticker "NVDA")
@@ -87,6 +108,41 @@ module ProgramTests =
             let values = reports |> List.map (fun (MarketReport text) -> text)
             Assert.Equal<string list>([ "technical ok"; "news ok" ], values)
         | Error error -> failwithf "Expected interpreter success, got %A" error
+
+    [<Fact>]
+    let ``test interpreter evaluates debate participants before judge and returns judge result`` () =
+        let program =
+            Program.debate 1 [
+                Program.run<Ticker, DebateArgument> (agent "bull") (Ticker "NVDA")
+                Program.run<Ticker, DebateArgument> (agent "bear") (Ticker "NVDA")
+            ] (Program.run<DebateArgument list, Decision> (agent "judge") [ DebateArgument "bull"; DebateArgument "bear" ])
+
+        let interpreter =
+            TestInterpreter.empty
+            |> TestInterpreter.withAgentResult<DebateArgument> "bull" (DebateArgument "upside")
+            |> TestInterpreter.withAgentResult<DebateArgument> "bear" (DebateArgument "downside")
+            |> TestInterpreter.withAgentResult<Decision> "judge" Hold
+
+        match TestInterpreter.run program interpreter with
+        | Ok decision -> Assert.Equal(Hold, decision)
+        | Error error -> failwithf "Expected interpreter success, got %A" error
+
+    [<Fact>]
+    let ``test interpreter reports missing debate participant fixture before judge`` () =
+        let program =
+            Program.debate 1 [
+                Program.run<Ticker, DebateArgument> (agent "bull") (Ticker "NVDA")
+                Program.run<Ticker, DebateArgument> (agent "bear") (Ticker "NVDA")
+            ] (Program.run<DebateArgument list, Decision> (agent "judge") [])
+
+        let interpreter =
+            TestInterpreter.empty
+            |> TestInterpreter.withAgentResult<DebateArgument> "bull" (DebateArgument "upside")
+            |> TestInterpreter.withAgentResult<Decision> "judge" Buy
+
+        match TestInterpreter.run program interpreter with
+        | Error (MissingAgentFixture "bear") -> ()
+        | other -> failwithf "Expected missing participant fixture error, got %A" other
 
     [<Fact>]
     let ``test interpreter reports missing fixture`` () =

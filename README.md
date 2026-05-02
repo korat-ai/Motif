@@ -18,6 +18,10 @@ Early-stage .NET 10 spike with:
   - `OutputSpec`
   - validation
   - `MotifProgram<'T>` initial/free-like program description
+    - `RunAgent`
+    - `Fanout`
+    - `Sequence`
+    - `Debate`
   - deterministic `TestInterpreter`
 - `Motif.AgentFramework`
   - thin adapter from `AgentSpec` to native MAF `AIAgent`
@@ -59,6 +63,23 @@ let interpreter =
 let result = TestInterpreter.run program interpreter
 ```
 
+A debate is still just description in Core. The deterministic interpreter evaluates participants first for fixture coverage and returns the judge result:
+
+```fsharp
+let debateProgram : MotifProgram<Decision> =
+    Program.debate 2
+        [ Program.run<Ticker, DebateArgument> bullResearcher (Ticker "NVDA")
+          Program.run<Ticker, DebateArgument> bearResearcher (Ticker "NVDA") ]
+        (Program.run<DebateArgument list, Decision> researchManager [])
+```
+
+Examples:
+
+```text
+examples/05-program-test-interpreter/Motif.fsx
+examples/06-debate-test-interpreter/Motif.fsx
+```
+
 ## Build and test
 
 Use the local .NET 10 SDK path in this environment:
@@ -70,7 +91,7 @@ Use the local .NET 10 SDK path in this environment:
 Expected current result:
 
 ```text
-Passed: 13, Failed: 0
+Passed: 16, Failed: 0
 ```
 
 ## Design docs
