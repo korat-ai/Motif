@@ -17,8 +17,12 @@ module Binding =
         let executor = ChatForwardingExecutor(id, ChatForwardingExecutorOptions())
         ExecutorBinding.op_Implicit(executor)
 
-    /// Convert a native MAF Workflow into a native MAF subworkflow executor binding.
-    let ofWorkflow (id: string) (workflow: Workflow) : ExecutorBinding =
+    /// Convert a native MAF Workflow into a native MAF subworkflow executor binding using Workflow.Name as binding id.
+    let ofWorkflow (workflow: Workflow) : ExecutorBinding =
+        SubworkflowBinding(workflow, workflow.Name, ExecutorOptions.Default) :> ExecutorBinding
+
+    /// Convert a native MAF Workflow into a native MAF subworkflow executor binding with explicit binding id.
+    let ofWorkflowAs (id: string) (workflow: Workflow) : ExecutorBinding =
         SubworkflowBinding(workflow, id, ExecutorOptions.Default) :> ExecutorBinding
 
     /// Create fresh MAF executor options for a workflow/subworkflow binding.
@@ -28,13 +32,22 @@ module Binding =
         options.AutoYieldOutputHandlerResultObject <- autoYieldOutputHandlerResultObject
         options
 
-    /// Convert a native MAF Workflow into a subworkflow binding with explicit executor option flags.
-    let ofWorkflowWithOptions (id: string) (workflow: Workflow) autoSendMessageHandlerResultObject autoYieldOutputHandlerResultObject : ExecutorBinding =
+    /// Convert a native MAF Workflow into a subworkflow binding with explicit executor option flags using Workflow.Name as binding id.
+    let ofWorkflowWithOptions (workflow: Workflow) autoSendMessageHandlerResultObject autoYieldOutputHandlerResultObject : ExecutorBinding =
+        let options = executorOptions autoSendMessageHandlerResultObject autoYieldOutputHandlerResultObject
+        SubworkflowBinding(workflow, workflow.Name, options) :> ExecutorBinding
+
+    /// Convert a native MAF Workflow into a subworkflow binding with explicit binding id and executor option flags.
+    let ofWorkflowAsWithOptions (id: string) (workflow: Workflow) autoSendMessageHandlerResultObject autoYieldOutputHandlerResultObject : ExecutorBinding =
         let options = executorOptions autoSendMessageHandlerResultObject autoYieldOutputHandlerResultObject
         SubworkflowBinding(workflow, id, options) :> ExecutorBinding
 
-    /// Convert a native MAF Workflow into a subworkflow binding with native MAF ExecutorOptions.
-    let ofWorkflowUsingOptions (id: string) (workflow: Workflow) (options: ExecutorOptions) : ExecutorBinding =
+    /// Convert a native MAF Workflow into a subworkflow binding with native MAF ExecutorOptions using Workflow.Name as binding id.
+    let ofWorkflowUsingOptions (workflow: Workflow) (options: ExecutorOptions) : ExecutorBinding =
+        SubworkflowBinding(workflow, workflow.Name, options) :> ExecutorBinding
+
+    /// Convert a native MAF Workflow into a subworkflow binding with explicit binding id and native MAF ExecutorOptions.
+    let ofWorkflowAsUsingOptions (id: string) (workflow: Workflow) (options: ExecutorOptions) : ExecutorBinding =
         SubworkflowBinding(workflow, id, options) :> ExecutorBinding
 
 type WorkflowExpressionState =
@@ -127,11 +140,28 @@ type MafWorkflowExpressionBuilder(name: string) =
         this.ThenRun(state, WorkflowState.bindAgent agent)
 
     [<CustomOperation("runWorkflow")>]
-    member this.RunWorkflow(state: WorkflowExpressionState, id: string, workflow: Workflow) =
-        this.ThenRun(state, Binding.ofWorkflow id workflow)
+    member this.RunWorkflow(state: WorkflowExpressionState, workflow: Workflow) =
+        this.ThenRun(state, Binding.ofWorkflow workflow)
+
+    [<CustomOperation("runWorkflowAs")>]
+    member this.RunWorkflowAs(state: WorkflowExpressionState, id: string, workflow: Workflow) =
+        this.ThenRun(state, Binding.ofWorkflowAs id workflow)
 
     [<CustomOperation("runWorkflowWithOptions")>]
     member this.RunWorkflowWithOptions(
+        state: WorkflowExpressionState,
+        workflow: Workflow,
+        autoSendMessageHandlerResultObject: bool,
+        autoYieldOutputHandlerResultObject: bool) =
+        this.ThenRun(
+            state,
+            Binding.ofWorkflowWithOptions
+                workflow
+                autoSendMessageHandlerResultObject
+                autoYieldOutputHandlerResultObject)
+
+    [<CustomOperation("runWorkflowAsWithOptions")>]
+    member this.RunWorkflowAsWithOptions(
         state: WorkflowExpressionState,
         id: string,
         workflow: Workflow,
@@ -139,15 +169,19 @@ type MafWorkflowExpressionBuilder(name: string) =
         autoYieldOutputHandlerResultObject: bool) =
         this.ThenRun(
             state,
-            Binding.ofWorkflowWithOptions
+            Binding.ofWorkflowAsWithOptions
                 id
                 workflow
                 autoSendMessageHandlerResultObject
                 autoYieldOutputHandlerResultObject)
 
     [<CustomOperation("runWorkflowWithExecutorOptions")>]
-    member this.RunWorkflowWithExecutorOptions(state: WorkflowExpressionState, id: string, workflow: Workflow, options: ExecutorOptions) =
-        this.ThenRun(state, Binding.ofWorkflowUsingOptions id workflow options)
+    member this.RunWorkflowWithExecutorOptions(state: WorkflowExpressionState, workflow: Workflow, options: ExecutorOptions) =
+        this.ThenRun(state, Binding.ofWorkflowUsingOptions workflow options)
+
+    [<CustomOperation("runWorkflowAsWithExecutorOptions")>]
+    member this.RunWorkflowAsWithExecutorOptions(state: WorkflowExpressionState, id: string, workflow: Workflow, options: ExecutorOptions) =
+        this.ThenRun(state, Binding.ofWorkflowAsUsingOptions id workflow options)
 
     [<CustomOperation("edge")>]
     member _.Edge(state: WorkflowExpressionState, fromBinding: ExecutorBinding, toBinding: ExecutorBinding) =

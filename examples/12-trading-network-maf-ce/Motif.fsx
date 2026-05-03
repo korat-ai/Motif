@@ -131,8 +131,8 @@ let riskWorkflow : Workflow =
 let tradingNetwork : Workflow =
     workflow "paper-trading-network" {
         input "trading-request"
-        runWorkflow "research" researchWorkflow
-        runWorkflowWithOptions "risk-review" riskWorkflow true false
+        runWorkflow researchWorkflow
+        runWorkflowWithOptions riskWorkflow true false
         thenRun tradeDecisionMaker
         thenRun executionAgent
         thenRun journalAgent

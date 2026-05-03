@@ -101,7 +101,7 @@ module NativeWorkflowExpressionTests =
         tradingNetwork |> assertWorkflow "trading-network" 8
 
     [<Fact>]
-    let ``workflow expression can run subworkflow with default options`` () =
+    let ``workflow expression can run subworkflow using workflow name by default`` () =
         let researcher = nativeAgent "researcher" "Research the symbol."
         let judge = nativeAgent "judge" "Judge the research."
 
@@ -114,19 +114,19 @@ module NativeWorkflowExpressionTests =
         let parentWorkflow =
             workflow "parent-workflow" {
                 input "request"
-                runWorkflow "research" researchWorkflow
+                runWorkflow researchWorkflow
                 thenRun judge
                 output judge
             }
 
         parentWorkflow |> assertWorkflow "parent-workflow" 3
 
-        let binding = parentWorkflow |> findSubworkflowBinding "research"
+        let binding = parentWorkflow |> findSubworkflowBinding "research-workflow"
         Assert.Same(researchWorkflow, binding.WorkflowInstance)
         Assert.Same(ExecutorOptions.Default, binding.ExecutorOptions)
 
     [<Fact>]
-    let ``workflow expression can run subworkflow with explicit executor option flags`` () =
+    let ``workflow expression can run subworkflow with option flags using workflow name by default`` () =
         let researcher = nativeAgent "researcher" "Research the symbol."
         let judge = nativeAgent "judge" "Judge the research."
 
@@ -139,12 +139,34 @@ module NativeWorkflowExpressionTests =
         let parentWorkflow =
             workflow "parent-workflow" {
                 input "request"
-                runWorkflowWithOptions "research" researchWorkflow true false
+                runWorkflowWithOptions researchWorkflow true false
+                thenRun judge
+                output judge
+            }
+
+        let binding = parentWorkflow |> findSubworkflowBinding "research-workflow"
+        Assert.NotSame(ExecutorOptions.Default, binding.ExecutorOptions)
+        Assert.True(binding.ExecutorOptions.AutoSendMessageHandlerResultObject)
+        Assert.False(binding.ExecutorOptions.AutoYieldOutputHandlerResultObject)
+
+    [<Fact>]
+    let ``workflow expression can run subworkflow with explicit binding id override`` () =
+        let researcher = nativeAgent "researcher" "Research the symbol."
+        let judge = nativeAgent "judge" "Judge the research."
+
+        let researchWorkflow =
+            workflow "research-workflow" {
+                start researcher
+                output researcher
+            }
+
+        let parentWorkflow =
+            workflow "parent-workflow" {
+                input "request"
+                runWorkflowAs "research" researchWorkflow
                 thenRun judge
                 output judge
             }
 
         let binding = parentWorkflow |> findSubworkflowBinding "research"
-        Assert.NotSame(ExecutorOptions.Default, binding.ExecutorOptions)
-        Assert.True(binding.ExecutorOptions.AutoSendMessageHandlerResultObject)
-        Assert.False(binding.ExecutorOptions.AutoYieldOutputHandlerResultObject)
+        Assert.Same(researchWorkflow, binding.WorkflowInstance)
