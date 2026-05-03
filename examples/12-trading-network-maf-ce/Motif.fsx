@@ -114,12 +114,25 @@ let journalAgent : AIAgent =
         tools [ writeTradingJournal ]
     }
 
+let researchWorkflow : Workflow =
+    workflow "research-workflow" {
+        input "research-request"
+        inParallel "research" [ marketAnalyst; newsAnalyst ]
+        thenRun technicalStrategist
+        output technicalStrategist
+    }
+
+let riskWorkflow : Workflow =
+    workflow "risk-review-workflow" {
+        start riskManager
+        output riskManager
+    }
+
 let tradingNetwork : Workflow =
     workflow "paper-trading-network" {
         input "trading-request"
-        inParallel "research" [ marketAnalyst; newsAnalyst ]
-        thenRun technicalStrategist
-        thenRun riskManager
+        runWorkflow "research" researchWorkflow
+        runWorkflowWithOptions "risk-review" riskWorkflow true false
         thenRun tradeDecisionMaker
         thenRun executionAgent
         thenRun journalAgent
@@ -128,4 +141,4 @@ let tradingNetwork : Workflow =
 
 printfn "TradingNetwork: %s" tradingNetwork.Name
 printfn "Executors: %i" (tradingNetwork.ReflectExecutors().Count)
-printfn "Shape: input -> parallel research(market, news) -> technical -> risk -> decision -> execution -> journal"
+printfn "Shape: input -> subworkflow research(market, news, technical) -> subworkflow risk(options) -> decision -> execution -> journal"

@@ -1,5 +1,6 @@
 namespace Motif.AgentFramework.ComputationExpressions
 
+open System
 open System.Collections.Generic
 open Microsoft.Agents.AI
 open Microsoft.Agents.AI.Workflows
@@ -15,6 +16,26 @@ module Binding =
     let forwarder (id: string) : ExecutorBinding =
         let executor = ChatForwardingExecutor(id, ChatForwardingExecutorOptions())
         ExecutorBinding.op_Implicit(executor)
+
+    /// Convert a native MAF Workflow into a native MAF subworkflow executor binding.
+    let ofWorkflow (id: string) (workflow: Workflow) : ExecutorBinding =
+        SubworkflowBinding(workflow, id, ExecutorOptions.Default) :> ExecutorBinding
+
+    /// Create fresh MAF executor options for a workflow/subworkflow binding.
+    let executorOptions autoSendMessageHandlerResultObject autoYieldOutputHandlerResultObject : ExecutorOptions =
+        let options = Activator.CreateInstance(typeof<ExecutorOptions>, true) :?> ExecutorOptions
+        options.AutoSendMessageHandlerResultObject <- autoSendMessageHandlerResultObject
+        options.AutoYieldOutputHandlerResultObject <- autoYieldOutputHandlerResultObject
+        options
+
+    /// Convert a native MAF Workflow into a subworkflow binding with explicit executor option flags.
+    let ofWorkflowWithOptions (id: string) (workflow: Workflow) autoSendMessageHandlerResultObject autoYieldOutputHandlerResultObject : ExecutorBinding =
+        let options = executorOptions autoSendMessageHandlerResultObject autoYieldOutputHandlerResultObject
+        SubworkflowBinding(workflow, id, options) :> ExecutorBinding
+
+    /// Convert a native MAF Workflow into a subworkflow binding with native MAF ExecutorOptions.
+    let ofWorkflowUsingOptions (id: string) (workflow: Workflow) (options: ExecutorOptions) : ExecutorBinding =
+        SubworkflowBinding(workflow, id, options) :> ExecutorBinding
 
 type WorkflowExpressionState =
     { Builder: WorkflowBuilder option
@@ -104,6 +125,29 @@ type MafWorkflowExpressionBuilder(name: string) =
     [<CustomOperation("thenRun")>]
     member this.ThenRun(state: WorkflowExpressionState, agent: AIAgent) =
         this.ThenRun(state, WorkflowState.bindAgent agent)
+
+    [<CustomOperation("runWorkflow")>]
+    member this.RunWorkflow(state: WorkflowExpressionState, id: string, workflow: Workflow) =
+        this.ThenRun(state, Binding.ofWorkflow id workflow)
+
+    [<CustomOperation("runWorkflowWithOptions")>]
+    member this.RunWorkflowWithOptions(
+        state: WorkflowExpressionState,
+        id: string,
+        workflow: Workflow,
+        autoSendMessageHandlerResultObject: bool,
+        autoYieldOutputHandlerResultObject: bool) =
+        this.ThenRun(
+            state,
+            Binding.ofWorkflowWithOptions
+                id
+                workflow
+                autoSendMessageHandlerResultObject
+                autoYieldOutputHandlerResultObject)
+
+    [<CustomOperation("runWorkflowWithExecutorOptions")>]
+    member this.RunWorkflowWithExecutorOptions(state: WorkflowExpressionState, id: string, workflow: Workflow, options: ExecutorOptions) =
+        this.ThenRun(state, Binding.ofWorkflowUsingOptions id workflow options)
 
     [<CustomOperation("edge")>]
     member _.Edge(state: WorkflowExpressionState, fromBinding: ExecutorBinding, toBinding: ExecutorBinding) =

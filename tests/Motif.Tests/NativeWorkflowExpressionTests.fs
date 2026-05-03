@@ -21,6 +21,13 @@ module NativeWorkflowExpressionTests =
         let executors = workflow.ReflectExecutors()
         Assert.True(executors.Count >= expectedExecutors, $"Expected at least {expectedExecutors} executors, got {executors.Count}")
 
+    let private findSubworkflowBinding id (workflow: Workflow) =
+        workflow.ReflectExecutors().Values
+        |> Seq.choose (function
+            | :? SubworkflowBinding as binding when binding.Id = id -> Some binding
+            | _ -> None)
+        |> Seq.exactlyOne
+
     [<Fact>]
     let ``native MAF workflow expression builds sequential workflow`` () =
         let market = nativeAgent "market" "Analyze market."
@@ -92,3 +99,52 @@ module NativeWorkflowExpressionTests =
             }
 
         tradingNetwork |> assertWorkflow "trading-network" 8
+
+    [<Fact>]
+    let ``workflow expression can run subworkflow with default options`` () =
+        let researcher = nativeAgent "researcher" "Research the symbol."
+        let judge = nativeAgent "judge" "Judge the research."
+
+        let researchWorkflow =
+            workflow "research-workflow" {
+                start researcher
+                output researcher
+            }
+
+        let parentWorkflow =
+            workflow "parent-workflow" {
+                input "request"
+                runWorkflow "research" researchWorkflow
+                thenRun judge
+                output judge
+            }
+
+        parentWorkflow |> assertWorkflow "parent-workflow" 3
+
+        let binding = parentWorkflow |> findSubworkflowBinding "research"
+        Assert.Same(researchWorkflow, binding.WorkflowInstance)
+        Assert.Same(ExecutorOptions.Default, binding.ExecutorOptions)
+
+    [<Fact>]
+    let ``workflow expression can run subworkflow with explicit executor option flags`` () =
+        let researcher = nativeAgent "researcher" "Research the symbol."
+        let judge = nativeAgent "judge" "Judge the research."
+
+        let researchWorkflow =
+            workflow "research-workflow" {
+                start researcher
+                output researcher
+            }
+
+        let parentWorkflow =
+            workflow "parent-workflow" {
+                input "request"
+                runWorkflowWithOptions "research" researchWorkflow true false
+                thenRun judge
+                output judge
+            }
+
+        let binding = parentWorkflow |> findSubworkflowBinding "research"
+        Assert.NotSame(ExecutorOptions.Default, binding.ExecutorOptions)
+        Assert.True(binding.ExecutorOptions.AutoSendMessageHandlerResultObject)
+        Assert.False(binding.ExecutorOptions.AutoYieldOutputHandlerResultObject)
