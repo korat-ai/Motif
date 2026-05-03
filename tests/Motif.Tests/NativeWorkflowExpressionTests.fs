@@ -1,5 +1,6 @@
 namespace Motif.AgentFramework.Tests
 
+open System
 open Xunit
 open Microsoft.Agents.AI
 open Microsoft.Agents.AI.Workflows
@@ -11,6 +12,9 @@ module NativeWorkflowExpressionTests =
 
     let private nativeAgent name instructions =
         ChatClientAgent(client, instructions, name, null, ResizeArray<AITool>(), null, null) :> AIAgent
+
+    let private nativeTool _name =
+        AIFunctionFactory.Create(Func<string, string>(fun input -> input))
 
     let private assertWorkflow expectedName expectedExecutors (workflow: Workflow) =
         Assert.Equal(expectedName, workflow.Name)
@@ -32,7 +36,7 @@ module NativeWorkflowExpressionTests =
 
     [<Fact>]
     let ``native MAF workflow expression builds panel with sequence branches`` () =
-        let input = Binding.forwarder "panel-input"
+        let inputBinding = Binding.forwarder "panel-input"
         let market = nativeAgent "market" "Analyze market." |> Binding.ofAgent
         let news = nativeAgent "news" "Analyze news." |> Binding.ofAgent
         let fundamentals = nativeAgent "fundamentals" "Analyze fundamentals." |> Binding.ofAgent
@@ -41,7 +45,7 @@ module NativeWorkflowExpressionTests =
 
         let workflow =
             mafWorkflow "native-panel" {
-                start input
+                start inputBinding
                 fanout [ market; fundamentals ]
                 edge market news
                 edge fundamentals risk
@@ -49,3 +53,42 @@ module NativeWorkflowExpressionTests =
             }
 
         workflow |> assertWorkflow "native-panel" 6
+
+    [<Fact>]
+    let ``agent expression returns native ChatClientAgent`` () =
+        let agent =
+            agent "market-analyst" {
+                chatClient client
+                instructions "Analyze market structure."
+                description "Market research agent"
+                tools [ nativeTool "get_market_data" ]
+            }
+
+        let chatAgent = Assert.IsType<ChatClientAgent>(agent)
+        Assert.Equal("market-analyst", chatAgent.Name)
+        Assert.Equal("Analyze market structure.", chatAgent.Instructions)
+        Assert.Equal("Market research agent", chatAgent.Description)
+
+    [<Fact>]
+    let ``workflow expression wires trading network from native agents`` () =
+        let marketAnalyst = nativeAgent "market-analyst" "Analyze market structure."
+        let newsAnalyst = nativeAgent "news-analyst" "Analyze news and sentiment."
+        let technicalStrategist = nativeAgent "technical-strategist" "Create trade setup."
+        let riskManager = nativeAgent "risk-manager" "Approve or reject trade risk."
+        let decisionMaker = nativeAgent "trade-decision-maker" "Make final trade decision."
+        let executionAgent = nativeAgent "execution-agent" "Execute approved paper trade."
+        let journalAgent = nativeAgent "journal-agent" "Write trading journal."
+
+        let tradingNetwork =
+            workflow "trading-network" {
+                input "trading-request"
+                inParallel "research" [ marketAnalyst; newsAnalyst ]
+                thenRun technicalStrategist
+                thenRun riskManager
+                thenRun decisionMaker
+                thenRun executionAgent
+                thenRun journalAgent
+                output journalAgent
+            }
+
+        tradingNetwork |> assertWorkflow "trading-network" 8
